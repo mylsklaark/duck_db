@@ -1,12 +1,14 @@
-### Building a Data Pipeline with DuckDB
+# Building a Data Pipeline with DuckDB
 
-This project is a copy of Robin Moffat's work, found at: https://rmoff.net/2025/03/20/building-a-data-pipeline-with-duckdb/. I wanted to practice ETL and  data engineering with DuckDB, all of which he uses in his example. I will then use this as a basis for my own project. Some of the below is re-written from Robin's blog. I've added my own notes to clarify things that are new to me/help information enter my brain.
+This project is a copy of Robin Moffat's work, found at: https://rmoff.net/2025/03/20/building-a-data-pipeline-with-duckdb/. 
+
+I wanted to practice ETL and data engineering with DuckDB, all of which he uses in his example. I will then use this as a basis for my own project. Some of the below is re-written from Robin's blog. I've added my own notes to clarify things that are new to me/help information enter my brain.
 
 The project uses the Environment Agency's 'Real Time flood-monitoring API', found here: https://environment.data.gov.uk/flood-monitoring/doc/reference. Said data is readings, providing information about measures such as rainfall and river levels. They are reported from a variety of stations around the UK.
 
-### Overview
+## Overview
 
-## The data
+## _The data_
 
 Regarding the data, Robin notes:
 
@@ -20,7 +22,7 @@ _At the heart of the data are readings, providing information about measures suc
 
 DuckDB will bw used throughout this project. It can:
 
-- read data from REST APIs
+- read data from [REST APIs](https://www.ibm.com/think/topics/rest-apis#:~:text=A%20REST%20API%20is%20an,to%20connect%20distributed%20hypermedia%20systems.)
 - process data
 - store data
 - be queried with a range of visualisation tools
@@ -39,10 +41,17 @@ If a station named 'CherwellsAmazingWaterStation' changed its name to 'Cherwells
 - there is no way to trace that the station used to have a different name
 - if the station is deleted from the dimension table old readings might become 'orphans' - fact records with no corresponding dimension data
 
-## The plan
+## _The plan_
 
-Periodic ingest to staging tables
+- Periodic ingest to staging tables
+- Rebuild dimension tables
+- Update fact table
+- Fact/Dim join
+- Analyse data
 
-Rebuild dimension tables
+> Run the following command to start the DuckDB UI:
+>
+> ```bash
+> duckdb env-agency.duckdb -ui
+> ```
 
-Update fact table
