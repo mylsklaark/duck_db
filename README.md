@@ -8,7 +8,7 @@ The project uses the Environment Agency's 'Real Time flood-monitoring API', foun
 
 ## Overview
 
-## The data
+### The data
 
 Regarding the data, Robin notes:
 
@@ -27,6 +27,8 @@ DuckDB will bw used throughout this project. It can:
 - store data
 - be queried with a range of visualisation tools
 
+I'll use a local installation on my Mac, referercing specific commands here to help me when I revist the project.
+
 In terms of a data warehousing or modelling context, we will be applying Slowly Changing Dimension Type 1 (SCD Type 1). This means that:
 
 - the dimension data is being overwritten each time with no version or history kept
@@ -35,13 +37,13 @@ In terms of a data warehousing or modelling context, we will be applying Slowly 
 
 The real-world implications of this are:
 
-If a station named 'CherwellsAmazingWaterStation' changed its name to 'CherwellsMoreAmazingWaterStation', in SCD Type 1:
+If a station named 'CherwellsAmazingWaterStation' changed its name to 'CherwellsEvenMoreAmazingWaterStation', in SCD Type 1:
 
 - all past readings originally associated with 'CherwellsAmazingWaterStation' will now appear as if they were from 'CherwellsMoreAmazingWaterStation'
 - there is no way to trace that the station used to have a different name
 - if the station is deleted from the dimension table old readings might become 'orphans' - fact records with no corresponding dimension data
 
-## The plan
+### The plan
 
 - Periodic ingest to staging tables
 - Rebuild dimension tables
@@ -55,3 +57,20 @@ If a station named 'CherwellsAmazingWaterStation' changed its name to 'Cherwells
 > duckdb env-agency.duckdb -ui
 > ```
 
+## Extract
+
+See the DuckDB notebook for extraction.
+
+## Transform
+
+### Keys
+
+The staging tables have no keys defined because they are intended to serve as a raw data ingestion layer. Staging is where we bring in the source data in its original form, including any inconsistencies and/or anomalies. While a station is not expected to have duplicate entries, the staging layer does not enforce this assumption to ensure all source data is captured for further processing and validation. Therefore, it's important to code defensively so that, while we will accept anything into the staging area, we won't allow all of it to enter the pipeline. Or as Robin puts it:
+
+> " ...we won't blindly propgate crap through the rest of the pipeline".
+
+Words to live by.
+
+### Readings > Measures
+
+### Measures > Stations
