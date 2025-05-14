@@ -8,7 +8,7 @@ The project uses the Environment Agency's 'Real Time flood-monitoring API', foun
 
 ## Overview
 
-## _The data_
+## The data
 
 Regarding the data, Robin notes:
 
@@ -41,7 +41,7 @@ If a station named 'CherwellsAmazingWaterStation' changed its name to 'Cherwells
 - there is no way to trace that the station used to have a different name
 - if the station is deleted from the dimension table old readings might become 'orphans' - fact records with no corresponding dimension data
 
-## _The plan_
+## The plan
 
 - Periodic ingest to staging tables
 - Rebuild dimension tables
@@ -49,7 +49,7 @@ If a station named 'CherwellsAmazingWaterStation' changed its name to 'Cherwells
 - Fact/Dim join
 - Analyse data
 
-> Run the following command to start the DuckDB UI:
+> Run the following command in the terminal to start the DuckDB UI:
 >
 > ```bash
 > duckdb env-agency.duckdb -ui
