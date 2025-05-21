@@ -73,4 +73,59 @@ Words to live by.
 
 ### Readings > Measures
 
+The readings table has a column called measure. This contains a full URL identifying the measure for each reading. For example:
+
+```
+http://environment.data.gov.uk/flood-monitoring/id/measures/5312TH-level-stage-i-15_min-mASD
+```
+
+In the measures table, the @id column contains the exact same URL as its unique identifier. However, the measures table also has a notation column, which contains only the final part of the URL (the unique code). It looks like this:
+
+```
+5312TH-level-stage-i-15_min-mASD
+```
+
+Therefore, to make joining these tables easier and more readable, we will pre-process he readings.measure column to remove the URL prefix. This will leave only the unique code. This way, we can join readings and measures using the shortened value (notation). This will make our SQL queries simpler and easier to debug, since we won't be working with columns of long text.
+
 ### Measures > Stations
+
+The station for which a reading was taken is found via the measure, since measures are unique to a station. On measures, the station column is the foreign key:
+
+```
+http://environment.data.gov.uk/flood-monitoring/id/stations/SP50_72
+```
+
+Again, the URL prefix (http://environment.data.gov.uk/flood-monitoring/id/stations/) is repeated, so we'll strip it out.
+
+Note that station (minus the URL prefix) and the stationReference are not always the same. The latter is not unique.
+
+## Dimension tables
+
+Building the dimension tables is simple enough. With a CREATE or REPLACE we tell DuckDB to create the table and, if it exists already, delete it and create a new one.
+
+### Measures
+
+We'll drop a couple of fields:
+
+- we don't need @id
+- latestReading holds fact data that we're getting from elsewhere, so there's no need to duplicate it here
+
+We'll also transform the foreign key to strip the URL prefix making it easier to work with.
+
+```
+CREATE OR REPLACE TABLE measures AS
+    SELECT *
+            EXCLUDE ("@id", latestReading)
+            REPLACE(
+                REGEXP_REPLACE(station,
+                        'http://environment\.data\.gov\.uk/flood-monitoring/id/stations/',
+                        '') AS station
+            )
+    FROM measures_stg;
+```
+
+This uses two helpful clauses in DuckDB, namely EXCLUDE and REPLACE.
+
+With EXCLUDE we're taking advantage of SELECT * to bring in all columns from the source table. This saves typing but also means new columns added to the source table will propogate automatically, with the exception of the ones that we don't want.
+
+REPLACE is an elegant way of providing a different version of the same column. Since we want to retain the station column but just trim the prefix, this is a great way of doing it without moving its position in the column list. The other option would have been to EXCLUDE it too, and then add it on to the column list.
