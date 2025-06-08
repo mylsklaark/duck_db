@@ -129,3 +129,62 @@ This uses two helpful clauses in DuckDB, namely EXCLUDE and REPLACE.
 With EXCLUDE we're taking advantage of SELECT * to bring in all columns from the source table. This saves typing but also means new columns added to the source table will propogate automatically, with the exception of the ones that we don't want.
 
 REPLACE is an elegant way of providing a different version of the same column. Since we want to retain the station column but just trim the prefix, this is a great way of doing it without moving its position in the column list. The other option would have been to EXCLUDE it too, and then add it on to the column list.
+
+With the created table we can define the primary key like this:
+
+```
+ALTER TABLE measures
+    ADD CONSTRAINT measures_pk PRIMARY KEY (notation);
+```
+
+### Stations
+
+This is very similar to the process above:
+
+```
+CREATE OR REPLACE TABLE stations AS
+    SELECT * EXCLUDE (measures)
+    FROM stations_stg;
+
+ALTER TABLE stations
+    ADD CONSTRAINT stations_pk PRIMARY KEY (notation);
+```
+
+It's common convention to place the primary key as the first column in a table definition. However, this is for readability and consistency rahter than technical necessity. In most modern relational databases like DuckDB, the database engine enforces the primary key contstraint regardless of column order. To achieve this, EXCLUDE the field manually and prefix it to the star expression:
+
+```
+CREATE OR REPLACE TABLE stations AS
+    SELECT notation, * EXCLUDE (measures, notation)
+    FROM stations_stg;
+
+ALTER TABLE stations ADD CONSTRAINT stations_pk PRIMARY KEY (notation);
+```
+
+When opting to do this, it would be logical to do the same for the other tables, too.
+
+### Fact table
+
+Because we're going to be adding to the table with new data rather than replacing it, we can't CREATE OR REPLACE it each time. Therefore, we'll run the CREATE as a one-off:
+
+```
+CREATE TABLE IF NOT EXISTS readings AS
+    SELECT * EXCLUDE "@id" FROM readings_stg WHERE FALSE;
+```
+
+- IF NOT EXISTS makes sure that we don't overwrite the table. We'd get the same effect if we just put CREATE TABLE. The only difference is that this would fail if the table already exists, whilst IF NOT EXISTS causes it to exit silently.
+- The @id column is excluded because we don't need it
+- This will only create the table using the schema provided by the SELECT; the WHERE FALSE means no rows will be selected. This is so that we decouple the table creation from its population
+
+Now we'll add a primary key. The key here is the time of the reading (dateTime) plus the measure (measure).
+
+```
+ALTER TABLE  readings
+    ADD CONSTRAINT readings_pk PRIMARY KEY (dateTime, measure);
+```
+
+### Populating the fact table
+
+Our approach here is: 'add data if it's new, don't throw an error if it already exists'. Our primary key for this is the time of the reading and the measure. If we receive a duplicate then we're going to ignore it.
+
+NOTE: In Rob's text he says that this is a design choice in that in theory we could decide that a duplicate reading represents an update to the original (re-stating a fact that could have been wrong previously) and handle it as an UPSERT (i.e., INSERT if new and UPDATE if exisitng). Using the approach we've adopted, a corrected value would be logged as a new record.
+
