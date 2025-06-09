@@ -188,3 +188,53 @@ Our approach here is: 'add data if it's new, don't throw an error if it already 
 
 NOTE: In Rob's text he says that this is a design choice in that in theory we could decide that a duplicate reading represents an update to the original (re-stating a fact that could have been wrong previously) and handle it as an UPSERT (i.e., INSERT if new and UPDATE if exisitng). Using the approach we've adopted, a corrected value would be logged as a new record.
 
+DuckDB has lots of useful syntax available around the INSERT INTO ... SELECT FROM pattern. To achieve what we want we use the self-documenting statement INSERT OR IGNORE. This is condensed version of the more verbose INSERT INTO.. SELECT FROM... ON CONFLICT DO NOTHING syntax. Essentialy, we can try to insert lots of data and DuckDB will only add the new rows, skipping any duplicates, without failing.
+
+```
+INSERT OR IGNORE INTO readings
+SELECT *
+    EXCLUDE "@id"
+    REPLACE(
+        REGEXP_REPLACE(measure,
+        'http://environment\.data\.gov\.uk/flood-monitoring/id/measures/',
+        '') AS measure)
+FROM readings_stg
+```
+This uses the same EXCLUDE and REPLACE expressions as we did above; remove the @id column and strip the URL prefix from the foreign key measure.
+
+### Joining the data
+
+Similar to the fact table above, we'll incrementally load this final, denormalised table.
+
+First, define a view which is a result of the join:
+
+```
+CREATE OR REPLACE VIEW vw_readings_enriched AS
+    SELECT  "r\0": COLUMNS(r.*)
+            "m\0": COLUMNS(m.*)
+            "s\0": COLUMNS(s.*)
+            FROM
+            readings r
+            LEFT JOIN measures m ON r.measure = m.notation
+            LEFT JOIN stations s ON m.station = s.notation
+```
+
+Using the view, create the table's schema (but don't populate anything yet):
+
+```
+CREATE TABLE IF NOT EXISTS readings_enriched AS
+    SELECT * FROM vw_readings_enriched LIMIT 0;
+
+ALTER TABLE readings_enriched
+    ADD CONSTRAINT readings_enriched_pk PRIMARY KEY (r_dateTime, r_measure);
+```
+Then populate it in the same way that we did for the readings table:
+
+```
+INSERT OR IGNORE INTO readings_enriched
+    SELECT * FROM vw_readings_enriched;
+```
+
+### Query the joined data
+
+Now that we've got our joined data we can start to query and analyse it. Here's the first five most recent readings of all water level measurements on the River Wharfe:
